@@ -1,0 +1,11 @@
+Third-party software included in BepInEx_win_x64_5.4.23.5.zip (unchanged official release)
+
+  BepInEx 5.4.23.5   LGPL-2.1   https://github.com/BepInEx/BepInEx
+  UnityDoorstop      LGPL-2.1   https://github.com/NeighTools/UnityDoorstop
+  HarmonyX           MIT        https://github.com/BepInEx/HarmonyX
+  MonoMod            MIT        https://github.com/MonoMod/MonoMod
+  Mono.Cecil         MIT        https://github.com/jbevain/cecil
+
+The full licence texts are available at the addresses above.
+
+HavendockFpsFix.dll contains no code or assets from Havendock.
