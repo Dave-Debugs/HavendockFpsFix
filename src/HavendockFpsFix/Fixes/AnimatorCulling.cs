@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.AI;
@@ -16,11 +15,11 @@ namespace HavendockFpsFix
         private static AnimatorCulling _self;
         private static ConfigEntry<float> _scanSeconds;
         private static ConfigEntry<int> _perFrame;
-        private static ConfigEntry<bool> _includeAgents;
+        private static ConfigEntry<bool> _includeSettlers;
         private static readonly Dictionary<Animator, AnimatorCullingMode> Changed = new Dictionary<Animator, AnimatorCullingMode>();
         private static readonly List<MonoBehaviour> Buf = new List<MonoBehaviour>();
         private static readonly HashSet<string> Protected = new HashSet<string> { "Sun", "Crane", "ItemPanel" };
-        private static long _scans, _considered, _changed, _skipMode, _skipRoot, _skipAgent, _skipNoRenderer, _skipUi, _skipProtected;
+        private static long _scans, _considered, _changed, _skipMode, _skipRoot, _skipNav, _skipNoRenderer, _skipUi, _skipProtected;
 
         public void Bind(ConfigFile cfg)
         {
@@ -31,22 +30,22 @@ namespace HavendockFpsFix
                 "Seconds between scans for animated objects.");
             _perFrame = cfg.Bind("AnimatorCulling", "PerFrame", 150,
                 "Animated objects checked per frame during a scan.");
-            _includeAgents = cfg.Bind("AnimatorCulling", "IncludeAgents", true,
+            _includeSettlers = cfg.Bind("AnimatorCulling", "IncludeAgents", true,
                 "Also pause the animation of off-screen settlers and animals that walk using the game's pathfinding. Their movement is not affected. Set to false if anything looks frozen when you scroll back to it.");
         }
 
         public void Apply(Harmony harmony)
         {
-            var go = new GameObject("HavendockFpsFix.AnimatorCulling") { hideFlags = HideFlags.HideAndDontSave };
-            UnityEngine.Object.DontDestroyOnLoad(go);
-            go.AddComponent<Runner>();
+            FixManager.AddRunner<Runner>("HavendockFpsFix.AnimatorCulling");
             Applied = true;
         }
 
         public string Stats() => !Applied ? "not applied"
-            : $"{Changed.Count} animators set to CullCompletely ({_changed} changes, {_considered} examined in {_scans} scans); skipped: mode {_skipMode}, root motion {_skipRoot}, NavMeshAgent {_skipAgent}, no renderer {_skipNoRenderer}, UI {_skipUi}, protected {_skipProtected}";
+            : $"{Changed.Count} animators set to CullCompletely ({_changed} changes, {_considered} examined in {_scans} scans); skipped: mode {_skipMode}, root motion {_skipRoot}, NavMeshAgent {_skipNav}, no renderer {_skipNoRenderer}, UI {_skipUi}, protected {_skipProtected}";
 
-        public void ResetStats() { _scans = _considered = _changed = _skipMode = _skipRoot = _skipAgent = _skipNoRenderer = _skipUi = _skipProtected = 0; }
+        public void Restore() { RestoreAll(); }
+
+        public void ResetStats() { _scans = _considered = _changed = _skipMode = _skipRoot = _skipNav = _skipNoRenderer = _skipUi = _skipProtected = 0; }
 
         private static void Consider(Animator a)
         {
@@ -55,8 +54,8 @@ namespace HavendockFpsFix
             if (Changed.ContainsKey(a)) return;
             if (a.cullingMode != AnimatorCullingMode.CullUpdateTransforms) { _skipMode++; return; }
             if (a.applyRootMotion) { _skipRoot++; return; }
-            var agent = a.GetComponentInParent<NavMeshAgent>(true);
-            if (agent != null && (!_includeAgents.Value || !agent.updatePosition)) { _skipAgent++; return; }
+            var nav = a.GetComponentInParent<NavMeshAgent>(true);
+            if (nav != null && (!_includeSettlers.Value || !nav.updatePosition)) { _skipNav++; return; }
             if (a.GetComponentInChildren<Renderer>(true) == null) { _skipNoRenderer++; return; }
             if (a.GetComponentInParent<Canvas>(true) != null) { _skipUi++; return; }
             a.GetComponentsInParent(true, Buf);

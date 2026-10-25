@@ -1,5 +1,4 @@
 using System;
-using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
 
@@ -52,6 +51,8 @@ namespace HavendockFpsFix
         }
 
         public string Stats() => Applied ? $"{_calls} updates, {_toggles} actual tag changes" : "not applied";
+        public void Restore() { }
+
         public void ResetStats() { _calls = _toggles = 0; }
     }
 }

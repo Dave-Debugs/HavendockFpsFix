@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.UI;
@@ -59,9 +58,7 @@ namespace HavendockFpsFix
             if (AccessTools.Field(typeof(BuildingScript), "buildingCanvas") == null) throw new MissingFieldException("BuildingScript.buildingCanvas not found");
             harmony.Patch(onEnable, postfix: new HarmonyMethod(typeof(EmptyCanvasDormant), nameof(GraphicOnEnable)));
             harmony.Patch(setRendering, prefix: new HarmonyMethod(typeof(EmptyCanvasDormant), nameof(BeforeSetRendering)));
-            var go = new GameObject("HavendockFpsFix.EmptyCanvasDormant") { hideFlags = HideFlags.HideAndDontSave };
-            UnityEngine.Object.DontDestroyOnLoad(go);
-            go.AddComponent<Runner>();
+            FixManager.AddRunner<Runner>("HavendockFpsFix.EmptyCanvasDormant");
             Applied = true;
         }
 
@@ -166,6 +163,8 @@ namespace HavendockFpsFix
             if (!Applied) return "not applied";
             return $"{_dormantCount} asleep of {Known.Count} known ({_faceOff} billboards parked), {_sleeps} sleeps, {_wakesByHook} wakes by hook, {_wakesByPoll} by poll, {_released} released to the game, {_evals} checks, {_scans} scans over {_frames} frames";
         }
+
+        public void Restore() { WakeAll(); }
 
         public void ResetStats() { _faceOff = _evals = _sleeps = _wakesByHook = _wakesByPoll = _released = _scans = _frames = _hookCalls = 0; }
 

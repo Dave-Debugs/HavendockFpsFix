@@ -5,36 +5,37 @@ namespace HavendockFpsFix
 {
     internal sealed class Overlay : MonoBehaviour
     {
+        internal static bool Show;
+        private static string _text = "";
+
         private readonly float[] _frames = new float[600];
         private readonly float[] _sorted = new float[600];
         private int _count, _index, _accFrames;
-        private float _accTime;
-        private bool _show;
-        private string _text = "";
-        private string _toast = "";
-        private float _toastUntil;
-        private GUIStyle _style;
+        private float _accTime, _nextReload;
+        private bool _lastSetting;
 
         private void Awake()
         {
-            _show = Plugin.ShowFpsCounter.Value;
+            _lastSetting = Plugin.ShowFpsCounter != null && Plugin.ShowFpsCounter.Value;
+            Show = _lastSetting;
         }
 
         private void Update()
         {
-            if (Plugin.KeyToggleFixes.Value.IsDown())
+            if (Time.unscaledTime >= _nextReload)
             {
-                var cfg = FixManager.MasterEnabled.ConfigFile;
-                bool save = cfg.SaveOnConfigSet;
-                cfg.SaveOnConfigSet = false;
-                FixManager.MasterEnabled.Value = !FixManager.MasterEnabled.Value;
-                cfg.SaveOnConfigSet = save;
-                _toast = "Havendock FPS Fix: " + (FixManager.MasterEnabled.Value ? "ON" : "OFF");
-                _toastUntil = Time.unscaledTime + 2.5f;
-                Plugin.Log.LogInfo(_toast);
+                _nextReload = Time.unscaledTime + 1f;
+                try
+                {
+                    var s = Plugin.Settings;
+                    if (s != null) s.Reload();
+                    bool want = Plugin.ShowFpsCounter != null && Plugin.ShowFpsCounter.Value;
+                    if (want != _lastSetting) { _lastSetting = want; Show = want; }
+                }
+                catch { }
             }
-            if (Plugin.KeyFpsCounter.Value.IsDown()) _show = !_show;
-            if (!_show) return;
+
+            if (!Show) { _count = 0; _accTime = 0f; _accFrames = 0; return; }
 
             float dt = Time.unscaledDeltaTime;
             _frames[_index] = dt;
@@ -51,31 +52,24 @@ namespace HavendockFpsFix
             float slow = 0f;
             for (int i = _count - n; i < _count; i++) slow += _sorted[i];
             float low = n / slow;
-            _text = string.Format("{0:F0} FPS   1% low {1:F0}   mod {2}", avg, low, FixManager.MasterEnabled.Value ? "ON" : "OFF");
+            _text = string.Format("{0:F0} FPS   1% low {1:F0}   mod {2}", avg, low, FixManager.MasterOn ? "ON" : "OFF");
             _accTime = 0f;
             _accFrames = 0;
         }
 
-        private void OnGUI()
+        internal static void Draw()
         {
-            bool toast = Time.unscaledTime < _toastUntil;
-            if (!_show && !toast) return;
-            if (_style == null)
-            {
-                _style = new GUIStyle(GUI.skin.label) { fontSize = 15, alignment = TextAnchor.MiddleCenter };
-                _style.normal.textColor = Color.white;
-            }
-            if (_show && _text.Length > 0) Box(new Rect(Screen.width - 300, 8, 292, 28), _text);
-            if (toast) Box(new Rect(Screen.width / 2f - 150, 8, 300, 28), _toast);
-        }
-
-        private void Box(Rect r, string text)
-        {
-            var old = GUI.color;
-            GUI.color = new Color(0f, 0f, 0f, 0.65f);
-            GUI.DrawTexture(r, Texture2D.whiteTexture);
-            GUI.color = old;
-            GUI.Label(r, text, _style);
+            var ctx = Plugin.Context;
+            if (ctx == null) return;
+            var ui = ctx.Ui;
+            bool editing = ui.HudEditing;
+            if (!editing && (!Show || _text.Length == 0)) return;
+            var st = ui.Styles;
+            float s = st.Scale;
+            var r = ui.Hud("fps", new Rect(Screen.width - 330f * s, 8f * s, 320f * s, 30f * s), new Vector2(200f * s, 24f * s));
+            GUI.Box(r, GUIContent.none, st.Box);
+            string text = Show && _text.Length > 0 ? _text : "FPS counter";
+            GUI.Label(new Rect(r.x + 10f * s, r.y, r.width - 20f * s, r.height), text, st.Label);
         }
     }
 }

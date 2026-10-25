@@ -1,40 +1,48 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
-    <AssemblyName>HavendockFpsFix</AssemblyName>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>HavendockFpsFixMod</AssemblyName>
     <RootNamespace>HavendockFpsFix</RootNamespace>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <Deterministic>true</Deterministic>
     <DebugType>none</DebugType>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
-    <Version>1.0.0</Version>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <Version>2.0.0</Version>
     <Product>Havendock FPS Fix</Product>
-    <GameDir Condition="'$(GameDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Havendock</GameDir>
-    <GameManaged Condition="'$(GameManaged)' == ''">$(GameDir)\Havendock_Data\Managed</GameManaged>
-    <BepInExCore Condition="'$(BepInExCore)' == ''">$(GameDir)\BepInEx\core</BepInExCore>
+    <HavendockDir Condition="'$(HavendockDir)' == '' and '$(HAVENDOCK_DIR)' != ''">$(HAVENDOCK_DIR)</HavendockDir>
+    <HavendockDir Condition="'$(HavendockDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Havendock</HavendockDir>
+    <HavendockManaged>$(HavendockDir)\Havendock_Data\Managed</HavendockManaged>
+    <HavendockApi Condition="'$(HavendockApi)' == '' and Exists('$(HavendockManaged)\HavendockModding.dll')">$(HavendockManaged)\HavendockModding.dll</HavendockApi>
+    <HavendockApi Condition="'$(HavendockApi)' == '' and Exists('$(HavendockDir)\BepInEx\plugins\HavendockLoader\HavendockModding.dll')">$(HavendockDir)\BepInEx\plugins\HavendockLoader\HavendockModding.dll</HavendockApi>
+    <HarmonyDll Condition="'$(HarmonyDll)' == ''">$(MSBuildThisFileDirectory)..\..\.cache\0Harmony.dll</HarmonyDll>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net472" Version="1.0.3" PrivateAssets="all" />
+    <Reference Include="HavendockModding"><HintPath>$(HavendockApi)</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(HarmonyDll)</HintPath><Private>false</Private></Reference>
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="BepInEx"><HintPath>$(BepInExCore)\BepInEx.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="0Harmony"><HintPath>$(BepInExCore)\0Harmony.dll</HintPath><Private>false</Private></Reference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <GameRef Include="UnityEngine;UnityEngine.CoreModule;UnityEngine.IMGUIModule;UnityEngine.InputLegacyModule;UnityEngine.AIModule;UnityEngine.AnimationModule;UnityEngine.UIModule;UnityEngine.TextRenderingModule;UnityEngine.UI;YYZAssembly;CoreAssembly;PhotonUnityNetworking;PhotonRealtime;Photon3Unity3D" />
+    <GameRef Include="UnityEngine;UnityEngine.CoreModule;UnityEngine.IMGUIModule;UnityEngine.InputLegacyModule;UnityEngine.TextRenderingModule;UnityEngine.AIModule;UnityEngine.AnimationModule;UnityEngine.UIModule;UnityEngine.UI;YYZAssembly;CoreAssembly" />
     <Reference Include="@(GameRef)">
-      <HintPath>$(GameManaged)\%(Identity).dll</HintPath>
+      <HintPath>$(HavendockManaged)\%(Identity).dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <OptionalRef Include="$(HavendockManaged)\Photon*.dll;$(HavendockManaged)\FishNet*.dll" />
+    <Reference Include="@(OptionalRef)">
       <Private>false</Private>
     </Reference>
   </ItemGroup>
 
-  <ItemGroup Condition="Exists('$(GameManaged)\netstandard.dll')">
-    <Reference Include="netstandard"><HintPath>$(GameManaged)\netstandard.dll</HintPath><Private>false</Private></Reference>
+  <ItemGroup>
+    <None Include="havendock-mod.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <Target Name="HavendockCheck" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="'$(HavendockApi)' == ''" Text="HavendockModding.dll not found in '$(HavendockManaged)' or '$(HavendockDir)\BepInEx\plugins\HavendockLoader'. Patch the game for co-op, or install the Havendock Mod Loader with the Havendock Mod Manager, then build again (or set HAVENDOCK_DIR / -p:HavendockDir=)." />
+    <Error Condition="!Exists('$(HarmonyDll)')" Text="0Harmony.dll not found at '$(HarmonyDll)'. Run build.ps1 from the repository root once; it downloads it." />
+  </Target>
 </Project>

@@ -9,42 +9,34 @@ try {
     Write-Host "  Game folder: $GameDir"
     Assert-NotRunning
 
-    $manifestPath = Join-Path $GameDir $script:ManifestName
-    $manifest = $null
-    if (Test-Path $manifestPath) { $manifest = Get-Content -Raw $manifestPath | ConvertFrom-Json }
-    $plugins = Join-Path $GameDir 'BepInEx\plugins'
-
-    foreach ($p in @((Join-Path $plugins $script:PluginFolder), (Join-Path $GameDir ('BepInEx\config\' + $script:ConfigName)))) {
-        if (Test-Path $p) { Remove-Item $p -Recurse -Force }
-    }
-    if ($manifest) {
-        $old = Join-Path $plugins 'HavendockPerf'
-        if (Test-Path $old) { Remove-Item $old -Recurse -Force }
-    }
-    Write-Host '  Removed the mod.'
-
-    if ($manifest -and $manifest.installedBepInEx) {
-        $others = @()
-        if (Test-Path $plugins) { $others += @(Get-ChildItem $plugins -Force) }
-        $patchers = Join-Path $GameDir 'BepInEx\patchers'
-        if (Test-Path $patchers) { $others += @(Get-ChildItem $patchers -Force) }
-        if ($others.Count -gt 0) {
-            Write-Host '  Other BepInEx mods are installed, so BepInEx was kept.' -ForegroundColor Yellow
-        } else {
-            foreach ($t in $manifest.topLevel) {
-                $p = Join-Path $GameDir $t
-                if (Test-Path $p) { Remove-Item $p -Recurse -Force }
-            }
-            Write-Host '  Removed BepInEx.'
-            if ($manifest.backupDir -and (Test-Path $manifest.backupDir)) {
-                foreach ($t in $manifest.backedUp) { Copy-Item (Join-Path $manifest.backupDir $t) $GameDir -Recurse -Force; Write-Host "  Restored your original $t" }
-                Remove-Item $manifest.backupDir -Recurse -Force
-            }
+    $mods = Join-Path $GameDir 'Mods'
+    $createdSwitch = $false
+    $createdModsFolder = $false
+    $copies = @(Get-InstalledCopies $mods)
+    foreach ($c in $copies) {
+        $recordPath = Join-Path $mods ($c.Name + '.install.json')
+        if (Test-Path $recordPath) {
+            try {
+                $r = Get-Content -Raw $recordPath | ConvertFrom-Json
+                if ($r.createdSwitch) { $createdSwitch = $true }
+                if ($r.createdModsFolder) { $createdModsFolder = $true }
+            } catch { }
+            Remove-Item $recordPath -Force
         }
-    } elseif (-not $manifest) {
-        Write-Host '  BepInEx was not installed by this mod, so it was kept.'
+        Remove-Item $c.FullName -Recurse -Force
+        Write-Host "  Removed the mod ($($c.Name))."
     }
-    if (Test-Path $manifestPath) { Remove-Item $manifestPath -Force }
+    if ($copies.Count -eq 0) { Write-Host '  The mod was not in the Mods folder.' }
+
+    if ($createdSwitch -and (Test-Path $mods)) {
+        $left = @(Get-ChildItem $mods -Force | Where-Object { $_.Name -ne 'mods.json' })
+        if ($left.Count -eq 0) {
+            Remove-Item (Join-Path $mods 'mods.json') -Force -ErrorAction SilentlyContinue
+            if ($createdModsFolder -and @(Get-ChildItem $mods -Force).Count -eq 0) { Remove-Item $mods -Force }
+        }
+    }
+
+    if (Test-BepInExVersion $GameDir) { Remove-BepInExVersion $GameDir }
 
     Write-Host ''
     Write-Host '  Done. Havendock is back to normal.' -ForegroundColor Green

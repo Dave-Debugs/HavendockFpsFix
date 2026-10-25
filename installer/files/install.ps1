@@ -7,62 +7,84 @@ try {
     Write-Title "Havendock FPS Fix $($script:FixVersion) - install"
     $GameDir = Find-GameDir $GameDir
     Write-Host "  Game folder: $GameDir"
-    if (-not (Test-Path (Join-Path $GameDir 'Havendock_Data\Managed\Assembly-CSharp.dll'))) { throw 'This copy of Havendock is not supported (Mono build not found).' }
+    $pkg = Get-PackagedMod $here
+    if (-not $pkg) { throw 'Some files are missing. Please unzip the whole download again.' }
     Assert-NotRunning
-
-    $manifestPath = Join-Path $GameDir $script:ManifestName
-    $manifest = $null
-    if (Test-Path $manifestPath) { $manifest = Get-Content -Raw $manifestPath | ConvertFrom-Json }
-    $plugins = Join-Path $GameDir 'BepInEx\plugins'
-
-    if ($manifest) {
-        Write-Host '  Updating an existing install.'
-        $old = Join-Path $plugins 'HavendockPerf'
-        if (Test-Path $old) { Remove-Item $old -Recurse -Force }
-        $cfgDir = Join-Path $GameDir 'BepInEx\config'
-        if ($manifest.configInstalled -and (Test-Path $cfgDir)) { Get-ChildItem $cfgDir -Filter '*.havendock.perf.cfg' | Remove-Item -Force }
-        if (-not ($manifest.PSObject.Properties.Name -contains 'configInstalled')) { $manifest | Add-Member configInstalled $false }
-        $manifest.configInstalled = $false
-    } elseif (Test-Path (Join-Path $GameDir 'BepInEx\core\BepInEx.dll')) {
-        Write-Host '  BepInEx is already installed. It will be left as it is.'
-        $manifest = [pscustomobject]@{ installedBepInEx = $false; backupDir = ''; backedUp = @(); topLevel = @(); configInstalled = $false; version = ''; installedAt = '' }
-    } else {
-        Write-Host '  Installing BepInEx 5.4.23.5 (mod loader)...'
-        $zipPath = Join-Path $here 'BepInEx_win_x64_5.4.23.5.zip'
-        if (-not (Test-Path $zipPath)) { throw 'BepInEx_win_x64_5.4.23.5.zip is missing. Please unzip the whole download again.' }
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
-        $zip = [IO.Compression.ZipFile]::OpenRead($zipPath)
-        $top = @($zip.Entries | ForEach-Object { ($_.FullName -replace '\\', '/').Split('/')[0] } | Where-Object { $_ } | Sort-Object -Unique)
-        $zip.Dispose()
-        $backup = Join-Path $GameDir 'HavendockFpsFix-backup'
-        $backedUp = @()
-        foreach ($t in $top) {
-            $p = Join-Path $GameDir $t
-            if (Test-Path $p) {
-                New-Item -ItemType Directory -Force -Path $backup | Out-Null
-                Copy-Item -Path $p -Destination $backup -Recurse -Force
-                $backedUp += $t
-                Write-Host "  Backed up your existing $t" -ForegroundColor Yellow
-            }
+    if (-not (Test-ModSupport $GameDir)) {
+        if (-not (Test-Path (Join-Path $GameDir 'BepInEx\core\BepInEx.dll'))) {
+            throw 'Havendock''s mod loader is not installed. Get the free Havendock Mod Manager from tools.havendock.online, let it set up the mod loader once, then run Install.cmd again.'
         }
-        Expand-Archive -Path $zipPath -DestinationPath $GameDir -Force
-        $manifest = [pscustomobject]@{ installedBepInEx = $true; backupDir = $(if ($backedUp.Count) { $backup } else { '' }); backedUp = $backedUp; topLevel = $top; configInstalled = $false; version = ''; installedAt = '' }
-        $manifest | ConvertTo-Json | Set-Content -Path $manifestPath -Encoding UTF8
+        Write-Host '  Havendock''s mod loader is missing. Downloading the official one from mods.havendock.online...'
+        Install-ModLoader $GameDir
     }
 
-    $dest = Join-Path $plugins $script:PluginFolder
-    New-Item -ItemType Directory -Force -Path $dest | Out-Null
-    Copy-Item (Join-Path $here 'HavendockFpsFix.dll') (Join-Path $dest 'HavendockFpsFix.dll') -Force
-    if (Test-Path (Join-Path $plugins 'HavendockPerf')) { Write-Host '  Note: another copy of this mod (HavendockPerf) is installed. Remove it so the fixes do not run twice.' -ForegroundColor Yellow }
+    $mods = Join-Path $GameDir 'Mods'
+    $dest = Join-Path $mods $pkg.Id
+    $recordPath = Join-Path $mods ($pkg.Id + '.install.json')
+    $record = $null
+    if (Test-Path $recordPath) { try { $record = Get-Content -Raw $recordPath | ConvertFrom-Json } catch { } }
+    if (-not $record) { $record = [pscustomobject]@{ createdModsFolder = $false; createdSwitch = $false; version = ''; installedAt = '' } }
 
-    $manifest.version = $script:FixVersion
-    $manifest.installedAt = (Get-Date).ToString('s')
-    $manifest | ConvertTo-Json | Set-Content -Path $manifestPath -Encoding UTF8
+    if (-not (Test-Path $mods)) {
+        New-Item -ItemType Directory -Force -Path $mods | Out-Null
+        $record.createdModsFolder = $true
+    }
+    $isUpdate = Test-Path (Join-Path $dest 'havendock-mod.json')
+    New-Item -ItemType Directory -Force -Path $dest | Out-Null
+
+    if (Test-BepInExVersion $GameDir) {
+        Write-Host '  Found the older BepInEx version of this mod. Replacing it.'
+        $oldCfg = Join-Path $GameDir ('BepInEx\config\' + $script:ConfigName)
+        $newCfg = Join-Path $dest 'legacy-settings.cfg'
+        if ((Test-Path $oldCfg) -and -not (Test-Path $newCfg)) {
+            Copy-Item $oldCfg $newCfg
+            Write-Host '  Kept your settings.'
+        }
+        Remove-BepInExVersion $GameDir
+    }
+
+    foreach ($other in Get-InstalledCopies $mods) {
+        if ($other.FullName -eq (Get-Item $dest).FullName) { continue }
+        $otherRecord = Join-Path $mods ($other.Name + '.install.json')
+        if (Test-Path $otherRecord) {
+            try {
+                $o = Get-Content -Raw $otherRecord | ConvertFrom-Json
+                if ($o.createdSwitch) { $record.createdSwitch = $true }
+                if ($o.createdModsFolder) { $record.createdModsFolder = $true }
+            } catch { }
+            Remove-Item $otherRecord -Force
+        }
+        $otherCfg = Join-Path $other.FullName 'config.json'
+        if ((Test-Path $otherCfg) -and -not (Test-Path (Join-Path $dest 'config.json'))) { Copy-Item $otherCfg (Join-Path $dest 'config.json') }
+        Remove-Item $other.FullName -Recurse -Force
+        Write-Host "  Replaced another copy of this mod ($($other.Name))."
+    }
+
+    Get-ChildItem $pkg.Path -File | ForEach-Object { Copy-Item $_.FullName (Join-Path $dest $_.Name) -Force }
+
+    $switch = Join-Path $mods 'mods.json'
+    if (-not (Test-Path $switch)) {
+        Set-Content -Path $switch -Value "{`n    `"enabled`": true`n}" -Encoding ASCII
+        $record.createdSwitch = $true
+    } else {
+        try {
+            $s = Get-Content -Raw $switch | ConvertFrom-Json
+            if ($s.PSObject.Properties.Name -contains 'enabled' -and -not $s.enabled) {
+                Write-Host '  Note: mods are switched off in this copy of Havendock. Turn them on in the Havendock Mod Manager or the Co-op Patcher.' -ForegroundColor Yellow
+            }
+        } catch { }
+    }
+
+    $record.version = $script:FixVersion
+    $record.installedAt = (Get-Date).ToString('s')
+    $record | ConvertTo-Json | Set-Content -Path $recordPath -Encoding UTF8
 
     Write-Host ''
-    Write-Host '  Installed.' -ForegroundColor Green
-    Write-Host '  Start Havendock from Steam as usual. The first start takes a little longer.'
-    Write-Host '  In game:  F8 turns the mod off/on to compare,  F7 shows an FPS counter.'
+    if ($isUpdate) { Write-Host '  Updated.' -ForegroundColor Green } else { Write-Host '  Installed.' -ForegroundColor Green }
+    Write-Host "  Mod folder: $dest"
+    Write-Host '  Start Havendock as usual.'
+    Write-Host '  In a world, press M to switch the fixes off and on, and Pause/Break for the mod menu'
+    Write-Host '  (FPS counter, settings, and to change the key).'
     Write-Host '  To remove it, run Uninstall.cmd.'
 } catch {
     Write-Host ''

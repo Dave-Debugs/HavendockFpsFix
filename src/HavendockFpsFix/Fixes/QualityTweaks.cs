@@ -1,5 +1,4 @@
 using System;
-using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
 
@@ -38,14 +37,14 @@ namespace HavendockFpsFix
 
         public void Apply(Harmony harmony)
         {
-            var go = new GameObject("HavendockFpsFix.QualityTweaks") { hideFlags = HideFlags.HideAndDontSave };
-            UnityEngine.Object.DontDestroyOnLoad(go);
-            go.AddComponent<Runner>();
+            FixManager.AddRunner<Runner>("HavendockFpsFix.QualityTweaks");
             Applied = true;
         }
 
         public string Stats() => !Applied ? "not applied"
             : $"cascades {(_cascOwned ? _cascOrig + "->" + _cascOurs : "untouched")}, distance {(_distOwned ? _distOrig + "->" + _distOurs : "untouched")}, low water {(_waterOwned ? "on" : "off")}, {_reapplied} re-applies";
+
+        public void Restore() { RestoreAll(); }
 
         public void ResetStats() { _reapplied = 0; }
 

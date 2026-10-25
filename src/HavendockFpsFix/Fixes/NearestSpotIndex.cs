@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Reflection.Emit;
-using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
 
@@ -15,7 +13,6 @@ namespace HavendockFpsFix
         public bool Applied { get; private set; }
 
         private static NearestSpotIndex _self;
-        private static ConfigEntry<bool> _verify;
 
         private static List<BuildingScript> _source;
         private static int _sourceVersion = int.MinValue, _sourceCount = -1;
@@ -24,18 +21,17 @@ namespace HavendockFpsFix
         private static readonly List<BuildingScript> _empty = new List<BuildingScript>();
         private static AccessTools.FieldRef<List<BuildingScript>, int> _versionRef;
 
-        private static bool _forceFull, _inVerify;
+        private static bool _pending;
+        private static BuildingType _pendingType;
         private static MethodInfo _target;
 
-        private static long _calls, _scanned, _fullSize, _rebuilds, _verified, _mismatches, _fallbacks;
+        private static long _calls, _scanned, _fullSize, _rebuilds, _fallbacks;
 
         public void Bind(ConfigFile cfg)
         {
             _self = this;
             Enabled = cfg.Bind("Fixes", "NearestSpotIndex", true,
                 "Settlers looking for the nearest bed, food, drink and so on no longer check every building one by one. Same results, much less work.");
-            _verify = cfg.Bind("Fixes", "NearestSpotVerify", false,
-                "Troubleshooting only: double-checks every answer against the game's original method (slower). Leave this false.");
         }
 
         public void Apply(Harmony harmony)
@@ -47,8 +43,8 @@ namespace HavendockFpsFix
             catch { _versionRef = null; Plugin.Log.LogWarning("NearestSpotIndex: List._version not found; index will rebuild every frame."); }
 
             harmony.Patch(_target,
-                transpiler: new HarmonyMethod(typeof(NearestSpotIndex), nameof(Transpiler)),
-                postfix: new HarmonyMethod(typeof(NearestSpotIndex), nameof(VerifyPostfix)));
+                prefix: new HarmonyMethod(typeof(NearestSpotIndex), nameof(TypePrefix)),
+                transpiler: new HarmonyMethod(typeof(NearestSpotIndex), nameof(Transpiler)));
             Applied = _transpiled;
             if (!Applied) Plugin.Log.LogWarning("NearestSpotIndex: IL pattern not found (game updated?). Fix inactive; vanilla behaviour.");
         }
@@ -58,11 +54,10 @@ namespace HavendockFpsFix
         internal static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
             var getter = AccessTools.PropertyGetter(typeof(BuildingManager), "buildings");
-            var helper = AccessTools.Method(typeof(NearestSpotIndex), nameof(Buildings));
             var codes = new List<CodeInstruction>(instructions);
             int hits = 0, at = -1;
             for (int i = 1; i < codes.Count; i++)
-                if ((codes[i].opcode == OpCodes.Call || codes[i].opcode == OpCodes.Callvirt) && Equals(codes[i].operand, getter) && codes[i - 1].IsLdarg(0))
+                if (codes[i].Calls(getter) && codes[i - 1].IsLdarg(0))
                 { hits++; at = i; }
             if (hits != 1)
             {
@@ -70,19 +65,27 @@ namespace HavendockFpsFix
                 _transpiled = false;
                 return codes;
             }
-            var ldType = new CodeInstruction(OpCodes.Ldarg_1);
-            ldType.labels.AddRange(codes[at].labels); codes[at].labels.Clear();
-            ldType.blocks.AddRange(codes[at].blocks); codes[at].blocks.Clear();
-            codes[at] = new CodeInstruction(OpCodes.Call, helper);
-            codes.Insert(at, ldType);
+            var call = CodeInstruction.Call(typeof(NearestSpotIndex), nameof(Buildings));
+            codes[at].MoveLabelsTo(call);
+            codes[at].MoveBlocksTo(call);
+            codes[at] = call;
             _transpiled = true;
             return codes;
         }
 
-        public static List<BuildingScript> Buildings(BuildingManager mgr, BuildingType type)
+        internal static void TypePrefix(BuildingType __0)
+        {
+            _pendingType = __0;
+            _pending = true;
+        }
+
+        public static List<BuildingScript> Buildings(BuildingManager mgr)
         {
             var all = mgr.buildings;
-            if (_forceFull || _self == null || !FixManager.IsActive(_self) || all == null) return all;
+            bool pending = _pending;
+            _pending = false;
+            if (!pending || _self == null || !FixManager.IsActive(_self) || all == null) return all;
+            var type = _pendingType;
             _calls++;
             _fullSize += all.Count;
             EnsureIndex(all);
@@ -119,39 +122,16 @@ namespace HavendockFpsFix
             _sourceCount = all.Count;
         }
 
-        internal static void VerifyPostfix(BuildingManager __instance, BuildingType buildingType, Character character, int minimumProducts,
-            bool requiresFreeStandHereSpot, ItemType mealRequirement, ref BuildingScript __result)
-        {
-            if (_inVerify || _self == null || !_verify.Value || !FixManager.IsActive(_self)) return;
-            int idxFast = character != null && character.agentAi != null ? character.agentAi.resourceIndexToTakeFood : 0;
-            BuildingScript vanilla;
-            _inVerify = true; _forceFull = true;
-            try
-            {
-                vanilla = (BuildingScript)_target.Invoke(__instance, new object[] { buildingType, character, minimumProducts, requiresFreeStandHereSpot, mealRequirement });
-            }
-            catch (TargetInvocationException e) { Plugin.Log.LogWarning("NearestSpotVerify: vanilla call threw " + e.InnerException?.GetType().Name); return; }
-            finally { _inVerify = false; _forceFull = false; }
-            int idxVanilla = character != null && character.agentAi != null ? character.agentAi.resourceIndexToTakeFood : 0;
-            _verified++;
-            if (!ReferenceEquals(vanilla, __result) || idxFast != idxVanilla)
-            {
-                _mismatches++;
-                if (_mismatches <= 20)
-                    Plugin.Log.LogError($"NearestSpotVerify MISMATCH #{_mismatches}: type={buildingType} char={(character ? character.name : "null")} fast={(__result ? __result.name : "null")}/{idxFast} vanilla={(vanilla ? vanilla.name : "null")}/{idxVanilla}");
-                __result = vanilla;
-            }
-        }
-
         public string Stats()
         {
             if (!Applied) return "not applied";
             double saved = _fullSize > 0 ? 100.0 * (1.0 - (double)_scanned / _fullSize) : 0;
             string s = $"{_calls} calls, scanned {_scanned} of {_fullSize} buildings ({saved:F1}% skipped), {_rebuilds} index rebuilds, {_fallbacks} fallbacks";
-            if (_verified > 0 || _verify.Value) s += $", verified {_verified}, mismatches {_mismatches}";
             return s;
         }
 
-        public void ResetStats() { _calls = _scanned = _fullSize = _rebuilds = _verified = _fallbacks = 0; }
+        public void Restore() { }
+
+        public void ResetStats() { _calls = _scanned = _fullSize = _rebuilds = _fallbacks = 0; }
     }
 }

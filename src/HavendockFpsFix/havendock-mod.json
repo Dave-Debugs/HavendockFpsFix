@@ -1,0 +1,117 @@
+{
+  "id": "dave-debugs.fpsfix",
+  "name": "Havendock FPS Fix",
+  "version": "2.0.0",
+  "author": "Dave-Debugs",
+  "description": "More FPS for big late-game colonies. It skips work the game repeats every frame even though nothing on screen changes; your colony and saves stay exactly the same. Press M to switch it off and on and see the difference.",
+  "side": "client",
+  "gameVersion": "1.4.18",
+  "apiVersion": 8,
+  "assembly": "HavendockFpsFixMod.dll",
+  "tags": [
+    "performance",
+    "fps",
+    "quality-of-life"
+  ],
+  "homepage": "https://github.com/Dave-Debugs/HavendockFpsFix",
+  "preview": "",
+  "workshopId": 0,
+  "details": {
+    "about": [
+      "When a colony gets big, Havendock starts to stutter. A lot of that comes from work the game repeats every single frame even though nothing on screen changes. This mod skips that work. Your colony, your saves and how the game plays stay exactly the same.",
+      "On a large late-game colony (2560x1440, Ultra, water reflections on) it went from about 52 to about 91 FPS, and the 1% lows from about 47 to about 79. Your result depends on your PC and colony size; the bigger the colony, the more it helps.",
+      "What it does: floating icons and panels above buildings switch off while they are off screen or empty. Settlers find the nearest bed, food or drink faster and still pick the same places. The toolbar's NEW tags stop redrawing every frame. Animations you cannot see pause until they are back in view. Sun shadows use 2 detail levels instead of 4. The water's reflection is drawn without shadows. Network smoothing pauses in single player, where it does nothing.",
+      "Things you might notice: shadows far from the camera are a little softer, things reflected in the water have no shadows, and the small wiggle on the toolbar's NEW tags now plays. Every fix can be switched off by itself in the mod menu.",
+      "It uses Harmony (shipped next to the mod) because the modding API has no hooks for these engine-side costs. Every patch checks the game's code first and stands down by itself if a game update changed it."
+    ],
+    "controls": [
+      {
+        "key": "M",
+        "does": "turn the mod off and on, so you can see the difference (a message shows ON or OFF); change the key in the mod menu"
+      },
+      {
+        "key": "Pause/Break",
+        "does": "open the mod menu: FPS counter, the key setting, and a switch for every fix"
+      }
+    ],
+    "settings": [
+      {
+        "key": "fastNearestSearch",
+        "default": "true",
+        "does": "settlers look up the nearest building of a type from an index instead of checking every building; same results"
+      },
+      {
+        "key": "hideOffscreenIcons",
+        "default": "true",
+        "does": "switch off floating UI above buildings while it is off screen"
+      },
+      {
+        "key": "sleepEmptyPanels",
+        "default": "true",
+        "does": "put floating panels that show nothing to sleep until they have something to show"
+      },
+      {
+        "key": "quietNewTags",
+        "default": "true",
+        "does": "the toolbar's NEW tags only change when they need to, instead of rebuilding the HUD every frame"
+      },
+      {
+        "key": "shadowTweaks",
+        "default": "true",
+        "does": "apply shadowCascades while the mod runs; the game's own value comes back when it is off"
+      },
+      {
+        "key": "shadowCascades",
+        "default": "2",
+        "does": "sun shadow cascades: 1, 2 or 4 (the game uses 4); 0 keeps the game's setting"
+      },
+      {
+        "key": "pauseOffscreenAnims",
+        "default": "true",
+        "does": "pause decorative animations while they are off screen"
+      },
+      {
+        "key": "includeSettlers",
+        "default": "true",
+        "does": "also pause off-screen settler and animal animations (their movement is not affected); set false if anything looks frozen when you scroll back"
+      },
+      {
+        "key": "skipUnheardAnimEvents",
+        "default": "true",
+        "does": "animations stop sending events that no script on the object listens for; anything that listens is untouched"
+      },
+      {
+        "key": "pauseOfflineNetSync",
+        "default": "true",
+        "does": "single player only: pause the network smoothing on settlers, birds and boats, which does nothing without other players; back on the moment the game goes online"
+      },
+      {
+        "key": "leanHoverCheck",
+        "default": "true",
+        "does": "the every-frame mouse-over-UI check reuses its working lists, so there is less garbage to collect (fewer small stutters); same answers"
+      },
+      {
+        "key": "noReflectionShadows",
+        "default": "true",
+        "does": "no shadows inside the water's reflection; the water keeps its reflections and the world keeps its shadows"
+      },
+      {
+        "key": "postEffectsOff",
+        "default": "(empty)",
+        "does": "post-processing effects to switch off, comma separated, e.g. AmbientOcclusion, Bloom; the names in use are written to the log when a world loads; changes the look, so it is empty by default"
+      },
+      {
+        "key": "showFpsCounter",
+        "default": "false",
+        "does": "show the FPS counter as soon as you are in a world"
+      }
+    ],
+    "multiplayer": "Client mod: it only changes how your own game draws things and looks them up, never the shared game world, so it is safe on any server you join and needs nothing from the host. Tested in single player.",
+    "replaces": "Version 1.0.0 of this mod, which needed BepInEx. If you still have it, run its Uninstall.cmd first; this version tells you if it finds the old one.",
+    "tips": [
+      "Press M a few seconds after your world has loaded. If nothing happens, press Pause/Break and check that Havendock FPS Fix is listed and switched on.",
+      "Want a little more FPS? In the game's own settings, Depth of Field off and water reflections off both help a bit more. They change the look, so the mod leaves them to you.",
+      "Something looks odd? Press M. If it goes away, it is the mod: switch off the matching setting in the mod menu and please report it."
+    ]
+  }
+}

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
 
@@ -41,9 +40,7 @@ namespace HavendockFpsFix
             if (setRendering == null) throw new MissingMethodException("BuildingScript.SetRendering(bool) not found");
             if (AccessTools.Field(typeof(BuildingScript), "buildingCanvas") == null) throw new MissingFieldException("BuildingScript.buildingCanvas not found");
             harmony.Patch(setRendering, prefix: new HarmonyMethod(typeof(WorldCanvasCulling), nameof(ReleaseOwnership)));
-            var go = new GameObject("HavendockFpsFix.WorldCanvasCulling") { hideFlags = HideFlags.HideAndDontSave };
-            UnityEngine.Object.DontDestroyOnLoad(go);
-            go.AddComponent<Runner>();
+            FixManager.AddRunner<Runner>("HavendockFpsFix.WorldCanvasCulling");
             Applied = true;
         }
 
@@ -57,6 +54,8 @@ namespace HavendockFpsFix
             if (!Applied) return "not applied";
             return $"{Mine.Count} canvases off now ({_lastManaged} buildings managed), {_disables} disables, {_enables} enables, {_evals} checks over {_frames} frames";
         }
+
+        public void Restore() { RestoreAll(); }
 
         public void ResetStats() { _evals = _disables = _enables = _frames = 0; }
 

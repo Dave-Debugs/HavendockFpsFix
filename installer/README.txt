@@ -1,18 +1,20 @@
 ==============================================================
-  HAVENDOCK FPS FIX  1.0.0
+  HAVENDOCK FPS FIX  2.0.0
   More FPS for big late-game colonies
 ==============================================================
 
-Havendock slows down a lot once your colony gets big. This mod
-removes a lot of work the game repeats every frame for no
-visible reason, so big colonies run noticeably smoother.
+When a colony gets big, Havendock starts to stutter. A lot of
+that comes from work the game repeats every frame even though
+nothing on screen changes. This mod skips that work. Your
+colony, your saves and how the game plays stay the same.
 
-Tested on a large late-game save: about 52 FPS -> about 68 FPS
-(roughly +30%), with smoother 1% lows. Your result depends on
-your PC and the size of your colony.
+Tested on a large late-game colony (2560x1440, Ultra, water
+reflections on):
 
-Your saves are never touched, no game files are changed, and
-it can be removed completely at any time.
+    without the mod   about 52 FPS   (1% low about 47)
+    with the mod      about 91 FPS   (1% low about 79)
+
+Your result depends on your PC and the size of your colony.
 
 
 --------------------------------------------------------------
@@ -20,23 +22,88 @@ it can be removed completely at any time.
 --------------------------------------------------------------
 
   1. Close Havendock.
-  2. Unzip this folder anywhere (your Desktop is fine).
-  3. Double-click  Install.cmd
-  4. Start Havendock from Steam like you normally do.
-
-  The installer finds Havendock through Steam on its own. If it
-  can't, it asks you to paste the game folder.
+  2. Unzip this download (right-click it > Extract All).
+  3. Open the unzipped folder and double-click  Install.cmd
+  4. Start Havendock and load your world.
+  5. Wait a few seconds, then press M. A message says
+     "Havendock FPS Fix: OFF". Press M again to turn it on.
 
   If Windows shows a blue "Windows protected your PC" box,
   click "More info" and then "Run anyway".
+
+  The installer finds Havendock through Steam by itself. If it
+  can't, it asks for the game folder. In Steam: right-click
+  Havendock > Manage > Browse local files, copy the address.
+
+  Havendock mods need Havendock's mod loader. If it is missing,
+  the installer downloads the official one for you. If it says
+  it can't, install the free Havendock Mod Manager from
+  tools.havendock.online once, let it set up the mod loader,
+  then run Install.cmd again.
+
+  Had version 1.0.0? Just run Install.cmd. It replaces the old
+  version and keeps your settings.
+
+  By hand: copy the folder  files\{MODID}  into
+  Havendock\Mods\  (the mod loader is still needed).
 
 
 --------------------------------------------------------------
   IN GAME
 --------------------------------------------------------------
 
-  F8   Turn the mod off / on (to see the difference yourself)
-  F7   Show / hide an FPS counter
+  M             Turn the mod off / on to see the difference
+  Pause/Break   Open the mod menu
+
+  In the mod menu, under Havendock FPS Fix, you can turn on an
+  FPS counter, change the M key, and switch each fix off or on
+  by itself under Settings. Changes work within a second.
+
+
+--------------------------------------------------------------
+  WHAT IT CHANGES
+--------------------------------------------------------------
+
+  - Floating icons and panels above buildings switch off while
+    they are off screen or empty, and come back the moment
+    they are needed.
+  - Settlers find the nearest bed, food, drink and so on much
+    faster. They still pick the same places.
+  - The toolbar's NEW tags stop redrawing the toolbar every
+    frame.
+  - Animations you can't see pause until they are back in view.
+  - Sun shadows use 2 detail levels instead of 4.
+  - Animations stop sending messages nothing listens to,
+    network smoothing pauses in single player (it only matters
+    in co-op), and the mouse-over check stops making garbage
+    every frame.
+  - The water's reflection is drawn without shadows.
+  - Optional, off unless you fill it in: "Post effects off"
+    switches off screen effects you name, e.g. Bloom.
+
+  Things you might notice:
+  - Shadows far from the camera are a little softer.
+  - Things reflected in the water have no shadows.
+  - The small wiggle on the toolbar's NEW tags now plays.
+
+  Want a little more? In the game's own settings, Depth of
+  Field off and water reflections off both help a bit more.
+  They change the look, so the mod leaves them to you.
+
+
+--------------------------------------------------------------
+  IF SOMETHING IS WRONG
+--------------------------------------------------------------
+
+  - M does nothing: wait a few seconds after the world has
+    loaded and try again. Press Pause/Break. If Havendock FPS
+    Fix is not in the mod menu, run Install.cmd again and read
+    what it says.
+  - Something looks odd: press M. If it goes away, it's the
+    mod. Switch off the matching setting in the mod menu and
+    please report it at {REPORT}
+  - After a game update: if a fix no longer fits the game, it
+    switches itself off and the game runs normally.
 
 
 --------------------------------------------------------------
@@ -44,56 +111,17 @@ it can be removed completely at any time.
 --------------------------------------------------------------
 
   Close Havendock and double-click  Uninstall.cmd
-  Everything the installer added is removed again.
+  Or delete the folder  Havendock\Mods\{MODID}
 
-
---------------------------------------------------------------
-  WHAT IT CHANGES
---------------------------------------------------------------
-
-  - Floating icons and panels above buildings are switched off
-    while they are off screen or empty. They come back the
-    moment they are needed.
-  - Settlers find the nearest bed, food, drink and so on much
-    faster. They still pick the same places.
-  - The toolbar's NEW tags no longer rebuild the whole HUD
-    every frame.
-  - Animations you can't see (off screen) are paused until
-    they come back into view.
-  - Sun shadows use 2 detail levels instead of 4.
-
-  Things you might notice:
-  - Shadows far from the camera are a little softer.
-  - The small wiggle on the toolbar's NEW tags now plays.
-
-  Want even more FPS? Turn off water reflections in the game's
-  own settings menu. That one is up to you, so the mod leaves
-  it alone.
-
-
---------------------------------------------------------------
-  GOOD TO KNOW
---------------------------------------------------------------
-
-  - Made for the Steam version of Havendock (October 2026).
-    If a game update changes something the mod relies on, that
-    part switches itself off and the game runs normally.
-  - Tested in single player. Co-op has not been tested.
-  - Already use other BepInEx mods? That's fine. The installer
-    leaves your BepInEx alone.
-  - Settings file (created after the first start):
-      Havendock\BepInEx\config\havendock.fpsfix.cfg
-    Every fix can be switched off there on its own.
-  - Something looks wrong? Press F8. If the problem goes away,
-    it's the mod. Please report it at
-    github.com/Dave-Debugs/HavendockFpsFix/issues
+  The mod loader stays, because other Havendock mods use it.
+  To remove it too, delete  Havendock\BepInEx\plugins\HavendockLoader
 
 
 --------------------------------------------------------------
   CREDITS
 --------------------------------------------------------------
 
-  Uses BepInEx 5.4.23.5 (mod loader, unchanged official
-  release). Licences are in files\THIRD-PARTY-LICENSES.txt.
+  Uses Harmony 2.4.3 (unchanged official release, MIT licence).
+  Licences are in files\THIRD-PARTY-LICENSES.txt.
   Havendock is made by YYZ Productions. This mod is unofficial
   and contains no game code or assets.

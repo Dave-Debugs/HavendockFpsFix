@@ -1,40 +1,66 @@
-using BepInEx;
-using BepInEx.Configuration;
-using BepInEx.Logging;
+using System;
+using System.IO;
+using Havendock.Modding;
 using UnityEngine;
 
 namespace HavendockFpsFix
 {
-    [BepInPlugin(Guid, Name, Version)]
-    [BepInProcess("Havendock.exe")]
-    public class Plugin : BaseUnityPlugin
+    internal static class Plugin
     {
-        public const string Guid = "havendock.fpsfix";
         public const string Name = "Havendock FPS Fix";
-        public const string Version = "1.0.0";
+        public const string Version = "2.0.0";
 
-        internal static ManualLogSource Log;
-        internal static ConfigEntry<KeyboardShortcut> KeyToggleFixes;
-        internal static ConfigEntry<KeyboardShortcut> KeyFpsCounter;
+        internal static ModLog Log = new ModLog(null);
+        internal static IModContext Context;
+        internal static ConfigFile Settings;
+        internal static string Folder;
+        internal static string ModId = "";
         internal static ConfigEntry<bool> ShowFpsCounter;
 
-        private void Awake()
+        internal static string GameRoot
         {
-            Log = Logger;
-            KeyToggleFixes = Config.Bind("Keys", "ToggleFixes", new KeyboardShortcut(KeyCode.F8),
-                "Turns the whole mod off or on while you play, so you can compare. Lasts until you quit the game.");
-            KeyFpsCounter = Config.Bind("Keys", "ToggleFpsCounter", new KeyboardShortcut(KeyCode.F7),
-                "Shows or hides the FPS counter.");
-            ShowFpsCounter = Config.Bind("Display", "ShowFpsCounter", false,
-                "Show the FPS counter as soon as the game starts.");
+            get
+            {
+                try { return Path.GetDirectoryName(Application.dataPath); }
+                catch { return Directory.GetCurrentDirectory(); }
+            }
+        }
 
-            FixManager.Init(Config);
-            FixManager.ApplyAll();
+        internal static string FindFolder(IModContext context)
+        {
+            try
+            {
+                if (context != null && context.Info != null && !string.IsNullOrEmpty(context.Info.Directory)) return context.Info.Directory;
+            }
+            catch { }
+            try
+            {
+                string loc = typeof(Plugin).Assembly.Location;
+                if (!string.IsNullOrEmpty(loc)) return Path.GetDirectoryName(loc);
+            }
+            catch { }
+            return Path.Combine(Path.Combine(GameRoot, "Mods"), ModId);
+        }
 
-            var host = new GameObject("HavendockFpsFix") { hideFlags = HideFlags.HideAndDontSave };
-            DontDestroyOnLoad(host);
-            host.AddComponent<Overlay>();
-            Log.LogInfo($"{Name} {Version} loaded.");
+        internal static string FindOldCopy()
+        {
+            try
+            {
+                foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    string n = a.GetName().Name;
+                    if (n == "HavendockFpsFix" || n == "HavendockPerf") return n;
+                }
+            }
+            catch { }
+            try
+            {
+                string plugins = Path.Combine(Path.Combine(GameRoot, "BepInEx"), "plugins");
+                if (File.Exists(Path.Combine(Path.Combine(plugins, "HavendockFpsFix"), "HavendockFpsFix.dll"))) return "HavendockFpsFix";
+                if (File.Exists(Path.Combine(Path.Combine(plugins, "HavendockPerf"), "HavendockPerf.dll"))) return "HavendockPerf";
+            }
+            catch { }
+            return null;
         }
     }
 }
